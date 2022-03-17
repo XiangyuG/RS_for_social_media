@@ -2,6 +2,7 @@ import sys
 
 import random
 from random import randrange
+import matplotlib.pyplot as plt
 
 def gen_recommend(curr_product, curr_customer, whitelist, blacklist, profit_l):
     ret_l = []
@@ -45,6 +46,41 @@ def gen_recommend(curr_product, curr_customer, whitelist, blacklist, profit_l):
         ret_l.pop()
     return ret_l
 
+def get_top(cust_num, customer_pref_l, profit_l):
+    ret_l = []
+    for ele in customer_pref_l:
+        if len(ret_l) == 0:
+            ret_l.append(ele)
+        elif len(ret_l) == 1:
+            if profit_l[ele] > profit_l[ret_l[0]]:
+                ret_l.insert(0, ele)
+            else:
+                ret_l.append(ele)
+        elif len(ret_l) == 2:
+            if profit_l[ele] > profit_l[ret_l[0]]:
+                ret_l.insert(0, ele)
+            elif profit_l[ele] > profit_l[ret_l[1]]:
+                ret_l.insert(1, ele)
+            else:
+                ret_l.append(ele)
+        else:
+            for i in range(len(ret_l)):
+                if profit_l[ele] > profit_l[ret_l[i]]:
+                    ret_l.insert(0, ele)
+                    break
+            if len(ret_l) > 3:
+                ret_l.pop()
+    return ret_l
+
+def get_product(curr_customer, curr_product, pref_dic):
+    ret_l = []
+    for mem in pref_dic[curr_customer]:
+        if mem != curr_product:
+            ret_l.append(mem)
+        if len(ret_l) == 2:
+            break
+    return ret_l
+
 def main(argv):
     if len(argv) != 6:
         print("Usage: python3", argv[0], "<number of different customers> <number of products> <lower bound of profit per product> <upper bound of profit per product> <number of customers showing>")
@@ -74,8 +110,12 @@ def main(argv):
             if prod_num not in customer_pref[i]:
                 customer_pref[i].append(prod_num)
                 cnt += 1
-    print("profit_l =", profit_l)
-    print("customer_pref =", customer_pref)
+    pref_dic = {} # key: customer name; value: [] list of top three profitable products the key customer likes
+    for i in range(num_customer):
+        top_three_l = get_top(i, customer_pref[i], profit_l)
+        pref_dic[i] = top_three_l
+    # print("profit_l =", profit_l)
+    # print("customer_pref =", customer_pref)
     print("--------------database generation finishes----------------")
 
     # showing the recommendation system
@@ -94,13 +134,35 @@ def main(argv):
         random_idx = randrange(0, len(customer_pref[cus]) - 1)
         product = customer_pref[cus][random_idx]
         product_to_buy_l.append(product)
+
+    # Generate the optimal result
+    max_profit_l = []
+    for i in range(customer_show_cnt):
+        curr_product = product_to_buy_l[i]
+        curr_customer = show_customer_l[i]
+        opt_product_l = get_product(curr_customer, curr_product, pref_dic)
+        profit_level = profit_l[curr_product]
+        for prod in opt_product_l:
+            profit_level += profit_l[prod]
+        max_profit_l.append(profit_level)
+
+    # Case0: no recommendation system
+    case0_profit = 0
+    case0_to_opt = []
+    for i in range(customer_show_cnt):
+        curr_product = product_to_buy_l[i]
+        curr_customer = show_customer_l[i]
+        case0_profit += profit_l[curr_product]
+        case0_to_opt.append("{:.2f}".format(profit_l[curr_product] / float(max_profit_l[i])))
+    print("case0_profit =", case0_profit)
     # Case1: optimal strategy
     case1_profit = 0
+    case1_to_opt = []
     for i in range(customer_show_cnt):
         curr_product = product_to_buy_l[i]
         curr_customer = show_customer_l[i]
         # the recommendation system will recommend two more food
-        #TODO: one from whitelist with maximum profit, one randomly from others whose profit is higher than the whitelist one
+        # one from whitelist with maximum profit, one randomly from others whose profit is higher than the whitelist one
         # the customers will decide to whether to buy the recommended food or not
         # if the recommended is in their preference, the customer will buy it
         recommend_l = gen_recommend(curr_product, curr_customer, whitelist, blacklist, profit_l) #TODO: get recommended
@@ -118,9 +180,11 @@ def main(argv):
         if curr_product not in whitelist[curr_customer]:
             whitelist[curr_customer].append(curr_product)
         case1_profit += profit_this_turn
+        case1_to_opt.append("{:.2f}".format(profit_this_turn / float(max_profit_l[i])))
     print("case1_profit =", case1_profit)
     # Case2: randomly pick up one 
     case2_profit = 0
+    case2_to_opt = []
     recommend_l = []
     while len(recommend_l) < 2:
         rv = randrange(0, num_products - 1)
@@ -135,18 +199,70 @@ def main(argv):
            if mem in customer_pref[curr_customer]:
                profit_this_turn += profit_l[mem]
         case2_profit += profit_this_turn
+        case2_to_opt.append("{:.2f}".format(profit_this_turn / float(max_profit_l[i])))
     print("case2_profit =", case2_profit)
     
     # Case3: quickly stop
+    case3_customer_product = {}
+    case3_to_opt = []
     case3_profit = 0
-    '''
     for i in range(customer_show_cnt):
         curr_product = product_to_buy_l[i]
         curr_customer = show_customer_l[i]
         profit_this_turn = 0
         profit_this_turn += profit_l[curr_product]
-        rec_l = one_recommend()
+        curr_recom_l = []
+        if curr_customer not in case3_customer_product or len(case3_customer_product[curr_customer]) == 0:
+            case3_customer_product[curr_customer] = []
+            while len(curr_recom_l) < 2:
+                rv = randrange(0, num_products - 1)
+                if rv not in curr_recom_l and rv != curr_product:
+                    curr_recom_l.append(rv)
+        else:
+            for mem in case3_customer_product[curr_customer]:
+                if mem != curr_product:
+                    curr_recom_l.append(mem)
+                    if len(curr_recom_l) == 2:
+                        break
+            while len(curr_recom_l) < 2:
+                rv = randrange(0, num_products - 1)
+                if rv not in curr_recom_l and rv != curr_product:
+                    curr_recom_l.append(rv)
+        for mem in curr_recom_l:
+            if mem in customer_pref[curr_customer]:
+                profit_this_turn += profit_l[mem]
+                if mem not in case3_customer_product[curr_customer]:
+                    case3_customer_product[curr_customer].append(mem)
+                if curr_product not in case3_customer_product[curr_customer]:
+                    case3_customer_product[curr_customer].append(curr_product)
         case3_profit += profit_this_turn
-    '''
+        case3_to_opt.append("{:.2f}".format(profit_this_turn / float(max_profit_l[i])))
+    print("case3_profit =", case3_profit)
+    print()
+    print(case0_to_opt)
+    print(case2_to_opt)
+    print(case3_to_opt)
+    print(case1_to_opt)
+    case0_to_opt_y =  [float(i) for i in case0_to_opt]
+    case2_to_opt_y =  [float(i) for i in case2_to_opt]
+    case3_to_opt_y =  [float(i) for i in case3_to_opt]
+    case1_to_opt_y =  [float(i) for i in case1_to_opt]
+    # Do ploting
+    x = [*range(0, customer_show_cnt, 1)]
+    plt.plot(x, case0_to_opt_y, label = "No recommendation system")
+    #plt.plot(x, case2_to_opt_y, label = "Recommendation System with random recommendation")
+    #plt.plot(x, case3_to_opt_y, label = "Recommendation System without explore and exploit")
+    #plt.plot(x, case1_to_opt_y, label = "Recommendation System with explore and exploit")
+    plt.ylim(0, 1.1)
+    plt.xlabel('Visitor number')
+    # naming the y axis
+    plt.ylabel('Ratio to optimal')
+    # giving a title to my graph
+    plt.title('Comparison to theoretically optimal profit result')
+    plt.legend()
+    plt.show()
+
+    print()
+    print(case0_profit, case2_profit, case3_profit, case1_profit)
 if __name__ == '__main__':
     main(sys.argv)
