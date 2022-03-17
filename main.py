@@ -136,8 +136,10 @@ def main(argv):
                profit_this_turn += profit_l[mem]
         case2_profit += profit_this_turn
     print("case2_profit =", case2_profit)
-    # Case3: only recommend one
+    
+    # Case3: quickly stop
     case3_profit = 0
+    '''
     for i in range(customer_show_cnt):
         curr_product = product_to_buy_l[i]
         curr_customer = show_customer_l[i]
@@ -145,6 +147,6 @@ def main(argv):
         profit_this_turn += profit_l[curr_product]
         rec_l = one_recommend()
         case3_profit += profit_this_turn
-    
+    '''
 if __name__ == '__main__':
     main(sys.argv)
