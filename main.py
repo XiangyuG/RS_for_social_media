@@ -2,7 +2,16 @@ import sys
 
 import random
 from random import randrange
+import statistics
+
 import matplotlib.pyplot as plt
+
+def get_val(l):
+    ret_v = 0
+    for v in l:
+        if v == 1:
+            ret_v += 1
+    return ret_v / float(100)
 
 def gen_recommend(curr_product, curr_customer, whitelist, blacklist, profit_l):
     ret_l = []
@@ -26,13 +35,35 @@ def gen_recommend(curr_product, curr_customer, whitelist, blacklist, profit_l):
                        ret_l[1] = i
         return ret_l
     if len(whitelist[curr_customer]) == 1:
-        ret_l.append(whitelist[curr_customer][0])
+        if whitelist[curr_customer][0] != curr_product:
+            ret_l.append(whitelist[curr_customer][0])
     else:
         for i in range(len(whitelist[curr_customer])):
+            if whitelist[curr_customer][i] == curr_product:
+                continue
             if len(ret_l) == 0:
                 ret_l.append(whitelist[curr_customer][i])
             elif profit_l[whitelist[curr_customer][i]] > profit_l[ret_l[0]]:
                 ret_l[0] = whitelist[curr_customer][i]
+    if len(ret_l) == 0:
+        for i in range(len(profit_l)):
+           if i == curr_product or i in blacklist[curr_customer]:
+               continue
+           else:
+               if len(ret_l) == 0:
+                   ret_l.append(i)
+               elif len(ret_l) == 1:
+                   if profit_l[i] > profit_l[ret_l[0]]:
+                       ret_l.insert(0, i)
+                   else:
+                       ret_l.append(i)
+               else:
+                   if profit_l[i] > profit_l[ret_l[0]]:
+                       ret_l.insert(0, i)
+                       ret_l.pop()
+                   elif profit_l[i] > profit_l[ret_l[1]]:
+                       ret_l[1] = i
+        return ret_l
     ret_l.append(-1)
     curr_max = 0
     for i in range(len(profit_l)):
@@ -44,6 +75,11 @@ def gen_recommend(curr_product, curr_customer, whitelist, blacklist, profit_l):
                 ret_l[1] = i
     if ret_l[1] == -1:
         ret_l.pop()
+    if curr_product in  ret_l:
+        print("curr_product =", curr_product)
+        print("ret_l =", ret_l)
+        print("Something wrong!!!!")
+        sys.exit(0)
     return ret_l
 
 def get_top(cust_num, customer_pref_l, profit_l):
@@ -66,7 +102,7 @@ def get_top(cust_num, customer_pref_l, profit_l):
         else:
             for i in range(len(ret_l)):
                 if profit_l[ele] > profit_l[ret_l[i]]:
-                    ret_l.insert(0, ele)
+                    ret_l.insert(i, ele)
                     break
             if len(ret_l) > 3:
                 ret_l.pop()
@@ -103,7 +139,7 @@ def main(argv):
     for i in range(num_customer):
         customer_pref[i] = []
         upper_bound = num_products / 5  # assume on average, a customer would like around 20% of all products
-        num_preferred_product = randrange(2, upper_bound)
+        num_preferred_product = randrange(3, upper_bound)
         cnt = 0
         while cnt < num_preferred_product:
             prod_num = randrange(0, num_products - 1)
@@ -145,7 +181,6 @@ def main(argv):
         for prod in opt_product_l:
             profit_level += profit_l[prod]
         max_profit_l.append(profit_level)
-
     # Case0: no recommendation system
     case0_profit = 0
     case0_to_opt = []
@@ -180,6 +215,11 @@ def main(argv):
         if curr_product not in whitelist[curr_customer]:
             whitelist[curr_customer].append(curr_product)
         case1_profit += profit_this_turn
+        if profit_this_turn > max_profit_l[i]:
+            print("hhhhhhhhhhhhhhhhhhhhhhhhhhhhhh")
+            print("recommend_l =", recommend_l)
+            print("customer =", curr_customer)
+            print("curr_product =", curr_product)
         case1_to_opt.append("{:.2f}".format(profit_this_turn / float(max_profit_l[i])))
     print("case1_profit =", case1_profit)
     # Case2: randomly pick up one 
@@ -239,14 +279,17 @@ def main(argv):
         case3_to_opt.append("{:.2f}".format(profit_this_turn / float(max_profit_l[i])))
     print("case3_profit =", case3_profit)
     print()
+    '''
     print(case0_to_opt)
     print(case2_to_opt)
     print(case3_to_opt)
     print(case1_to_opt)
+    '''
     case0_to_opt_y =  [float(i) for i in case0_to_opt]
     case2_to_opt_y =  [float(i) for i in case2_to_opt]
     case3_to_opt_y =  [float(i) for i in case3_to_opt]
     case1_to_opt_y =  [float(i) for i in case1_to_opt]
+    '''
     # Do ploting
     x = [*range(0, customer_show_cnt, 1)]
     plt.plot(x, case0_to_opt_y, label = "No recommendation system")
@@ -261,8 +304,33 @@ def main(argv):
     plt.title('Comparison to theoretically optimal profit result')
     plt.legend()
     plt.show()
-
+    fig = plt.figure(figsize = (10, 5))
+    langs = ['No recommendation', 'Random Recommendation', 
+             'Recommendation System v1', 'Recommendation System v2']
+    students = [statistics.mean(case0_to_opt_y), statistics.mean(case2_to_opt_y),
+                statistics.mean(case3_to_opt_y), statistics.mean(case1_to_opt_y)]
+    plt.bar(langs,students, width = 0.4)
+    plt.xlabel("Types of Recommendation Systems")
+    plt.ylabel("Avg ratio to optimal")
+    plt.title("Comparison to theoretically optimal profit result")
+    plt.legend()
+    plt.show() 
+    ''' 
+    fig = plt.figure(figsize = (10, 5))
+    langs = ['1-100', '100-200', '200-300', '300-400', '400-500', '500-600', '600-700', '700-800', '800-900', '900-1000']
+    print(case1_to_opt_y)
+    students = [statistics.mean(case1_to_opt_y[0:100]), statistics.mean(case1_to_opt_y[100:200]),
+                statistics.mean(case1_to_opt_y[200:300]), statistics.mean(case1_to_opt_y[300:400]),
+                statistics.mean(case1_to_opt_y[400:500]), statistics.mean(case1_to_opt_y[500:600]),
+                statistics.mean(case1_to_opt_y[600:700]), statistics.mean(case1_to_opt_y[700:800]),
+                statistics.mean(case1_to_opt_y[800:900]), statistics.mean(case1_to_opt_y[900:1000])]
+    plt.bar(langs,students, width = 0.4)
+    plt.xlabel("Visit number range")
+    plt.ylabel("Percentage to reach optimal")
+    plt.title("Convergence to optimal result")
+    plt.show()
     print()
     print(case0_profit, case2_profit, case3_profit, case1_profit)
+
 if __name__ == '__main__':
     main(sys.argv)
