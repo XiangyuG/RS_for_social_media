@@ -1,5 +1,6 @@
 # RS_for_restuarant
 Design a recommendation system using reinforcement learning
+script
 ```
 python3 main.py 10 200 1 10 100
 python3 main.py 20 200 1 10 200
